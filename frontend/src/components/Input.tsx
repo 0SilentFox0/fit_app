@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { useTheme } from '../ThemeProvider';
 
 interface InputProps {
   label?: string;
@@ -29,19 +30,32 @@ export const Input: React.FC<InputProps> = ({
   inputStyle,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
+  const theme = useTheme();
 
   return (
-    <View style={[styles.container, style]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+    <View style={[{ marginBottom: theme.spacing.md }, style]}>
+      {label && <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.text, marginBottom: theme.spacing.xs }}>{label}</Text>}
       <TextInput
         style={[
-          styles.input,
-          isFocused && styles.inputFocused,
-          error && styles.inputError,
-          disabled && styles.inputDisabled,
+          {
+            borderWidth: 1,
+            borderColor: error
+              ? theme.colors.error
+              : isFocused
+              ? theme.colors.primary
+              : theme.colors.inputBorder,
+            borderRadius: theme.borderRadius,
+            paddingHorizontal: theme.spacing.lg,
+            paddingVertical: theme.spacing.md,
+            fontSize: 16,
+            backgroundColor: theme.colors.inputBackground,
+            color: theme.colors.text,
+          },
+          disabled && { backgroundColor: theme.colors.muted, color: theme.colors.textSecondary },
           inputStyle,
         ]}
         placeholder={placeholder}
+        placeholderTextColor={theme.colors.placeholder}
         value={value}
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
@@ -51,43 +65,7 @@ export const Input: React.FC<InputProps> = ({
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
       />
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={{ color: theme.colors.error, fontSize: 14, marginTop: 4 }}>{error}</Text>}
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E1E1E1',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  inputFocused: {
-    borderColor: '#007AFF',
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  inputDisabled: {
-    backgroundColor: '#F5F5F5',
-    color: '#999999',
-  },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    marginTop: 4,
-  },
-}); 
+}; 

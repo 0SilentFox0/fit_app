@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { useTheme } from '../ThemeProvider';
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => void;
@@ -18,6 +19,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const theme = useTheme();
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
@@ -55,12 +57,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={{ flex: 1, backgroundColor: theme.colors.background }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome to FitConnect</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
+      <View style={{ flex: 1, padding: theme.spacing.xl, justifyContent: 'center' }}>
+        <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.colors.primary, textAlign: 'center', marginBottom: theme.spacing.xs }}>
+          Welcome to FitConnect
+        </Text>
+        <Text style={{ fontSize: 16, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: theme.spacing.xl }}>
+          Sign in to your account
+        </Text>
 
         <Input
           label="Email"
@@ -85,7 +91,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           title={isLoading ? 'Signing In...' : 'Sign In'}
           onPress={handleLogin}
           disabled={isLoading}
-          style={styles.loginButton}
+          style={{ marginTop: theme.spacing.md }}
         />
 
         <Button
@@ -93,11 +99,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           onPress={onForgotPassword}
           variant="outline"
           size="small"
-          style={styles.forgotButton}
+          style={{ marginTop: theme.spacing.md }}
         />
 
-        <View style={styles.signupContainer}>
-          <Text style={styles.signupText}>Don't have an account? </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: theme.spacing.xl }}>
+          <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>Don't have an account? </Text>
           <Button
             title="Sign Up"
             onPress={onSignup}
@@ -108,45 +114,4 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       </View>
     </KeyboardAvoidingView>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333333',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  loginButton: {
-    marginTop: 16,
-  },
-  forgotButton: {
-    marginTop: 16,
-  },
-  signupContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 32,
-  },
-  signupText: {
-    fontSize: 16,
-    color: '#666666',
-  },
-}); 
+}; 

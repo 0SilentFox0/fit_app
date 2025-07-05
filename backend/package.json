@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
+    "dev:mock": "nodemon src/server-mock.ts",
     "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
