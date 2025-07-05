@@ -43,6 +43,105 @@ export interface SignupResponse {
   };
 }
 
+export interface ProgressData {
+  userStats: number[];
+  averageStats: number[];
+  labels: string[];
+  userPercentile: number;
+  trending: number;
+  timeRange: string;
+}
+
+export interface AnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: ProgressData;
+}
+
+export interface TrainingSession {
+  id: string;
+  date: string;
+  duration: number;
+  totalCalories: number;
+  exercises: Exercise[];
+  trainerName: string;
+  sessionType: string;
+}
+
+export interface Exercise {
+  id: string;
+  name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  calories: number;
+  date: string;
+}
+
+export interface TrainingHistoryResponse {
+  success: boolean;
+  message: string;
+  data: TrainingSession[];
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  lastSession: string;
+  totalSessions: number;
+  progress: {
+    strength: number;
+    cardio: number;
+    flexibility: number;
+    balance: number;
+  };
+  paymentStatus: 'paid' | 'to_pay' | 'subscription';
+  subscriptionRemaining?: number;
+  nextSession?: string;
+}
+
+export interface TrainerClientsResponse {
+  success: boolean;
+  message: string;
+  data: Client[];
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  clientName: string;
+  startTime: string;
+  endTime: string;
+  status: 'confirmed' | 'pending' | 'cancelled';
+  sessionType: string;
+  location?: string;
+}
+
+export interface BookingRequest {
+  id: string;
+  clientName: string;
+  clientEmail: string;
+  requestedDate: string;
+  requestedTime: string;
+  sessionType: string;
+  duration: number;
+  message?: string;
+}
+
+export interface CalendarResponse {
+  success: boolean;
+  message: string;
+  data: CalendarEvent[];
+}
+
+export interface BookingRequestsResponse {
+  success: boolean;
+  message: string;
+  data: BookingRequest[];
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -103,6 +202,41 @@ class ApiService {
 
   async getHealth(): Promise<{ status: string; timestamp: string }> {
     return this.request<{ status: string; timestamp: string }>('/health');
+  }
+
+  async getProgress(): Promise<AnalyticsResponse> {
+    return this.request<AnalyticsResponse>('/analytics/progress');
+  }
+
+  async getClientProgress(): Promise<AnalyticsResponse> {
+    return this.request<AnalyticsResponse>('/clients/progress');
+  }
+
+  async getTrainingHistory(): Promise<TrainingHistoryResponse> {
+    return this.request<TrainingHistoryResponse>('/workouts/history/detailed');
+  }
+
+  async getExerciseProgress(exerciseName: string): Promise<any> {
+    return this.request<any>(`/workouts/progress/${encodeURIComponent(exerciseName)}`);
+  }
+
+  async getTrainerClients(): Promise<TrainerClientsResponse> {
+    return this.request<TrainerClientsResponse>('/trainers/clients');
+  }
+
+  async getTrainerCalendarEvents(): Promise<CalendarResponse> {
+    return this.request<CalendarResponse>('/trainers/calendar/events');
+  }
+
+  async getTrainerBookingRequests(): Promise<BookingRequestsResponse> {
+    return this.request<BookingRequestsResponse>('/trainers/calendar/requests');
+  }
+
+  async respondToBookingRequest(requestId: string, approved: boolean): Promise<any> {
+    return this.request<any>(`/trainers/calendar/requests/${requestId}/respond`, {
+      method: 'POST',
+      body: JSON.stringify({ approved }),
+    });
   }
 
   // Test API connectivity and switch URLs if needed

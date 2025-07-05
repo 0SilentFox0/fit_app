@@ -1,423 +1,784 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '../components/Button';
-import { useTheme } from '../ThemeProvider';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Modal,
+  TextInput,
+  Alert,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../ThemeProvider';
 
-interface BookingsScreenProps {
-  navigation: any;
+const { width } = Dimensions.get('window');
+
+interface Trainer {
+  id: string;
+  name: string;
+  specialty: string;
+  avatar: string;
+  rating: number;
+  price: number;
+  availableSlots: TimeSlot[];
 }
 
-const sessions = [
-  {
-    id: '1',
-    trainerName: 'Sarah Johnson',
-    trainerSpecialty: 'Yoga & Pilates',
-    date: 'Today',
-    time: '10:00 AM',
-    duration: '60 min',
-    status: 'confirmed',
-    type: 'yoga',
-    progress: 0,
-    avatar: '🧘‍♀️',
-    rating: 4.9,
-  },
-  {
-    id: '2',
-    trainerName: 'Mike Chen',
-    trainerSpecialty: 'Strength Training',
-    date: 'Tomorrow',
-    time: '2:00 PM',
-    duration: '45 min',
-    status: 'pending',
-    type: 'strength',
-    progress: 0,
-    avatar: '💪',
-    rating: 4.8,
-  },
-  {
-    id: '3',
-    trainerName: 'Emma Davis',
-    trainerSpecialty: 'Cardio & HIIT',
-    date: 'Friday',
-    time: '9:00 AM',
-    duration: '30 min',
-    status: 'completed',
-    type: 'cardio',
-    progress: 100,
-    avatar: '🏃‍♀️',
-    rating: 4.7,
-  },
-];
+interface TimeSlot {
+  id: string;
+  date: string;
+  time: string;
+  duration: number;
+  isAvailable: boolean;
+  trainerId: string;
+}
 
-const bookingStats = [
-  { label: 'Total Sessions', value: 8, color: '#FF6B6B' },
-  { label: 'This Month', value: 5, color: '#4ECDC4' },
-  { label: 'Upcoming', value: 3, color: '#45B7D1' },
-];
+interface Booking {
+  id: string;
+  trainerId: string;
+  trainerName: string;
+  date: string;
+  time: string;
+  duration: number;
+  sessionType: string;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  progress?: number;
+  exercises?: Exercise[];
+}
 
-const sessionTypes = [
-  { name: 'Yoga', icon: 'leaf', color: '#FF6B6B', count: 4 },
-  { name: 'Strength', icon: 'dumbbell', color: '#4ECDC4', count: 3 },
-  { name: 'Cardio', icon: 'heart', color: '#45B7D1', count: 2 },
-  { name: 'HIIT', icon: 'flash', color: '#96CEB4', count: 1 },
-];
+interface Exercise {
+  name: string;
+  sets: number;
+  reps: number;
+  weight: number;
+  notes?: string;
+}
 
-export const BookingsScreen: React.FC<BookingsScreenProps> = ({ navigation }) => {
-  const theme = useTheme();
-  const [selectedFilter, setSelectedFilter] = useState('all');
+export const BookingsScreen: React.FC = () => {
+  const { colors, spacing } = useTheme();
+  const [selectedTab, setSelectedTab] = useState<'upcoming' | 'history'>('upcoming');
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [sessionType, setSessionType] = useState('strength');
 
-  // Animated values for stats
-  const statsAnimations = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
+  const trainers: Trainer[] = [
+    {
+      id: '1',
+      name: 'Sarah Johnson',
+      specialty: 'Strength Training',
+      avatar: '💪',
+      rating: 4.9,
+      price: 75,
+      availableSlots: [
+        { id: '1', date: '2024-01-15', time: '09:00', duration: 60, isAvailable: true, trainerId: '1' },
+        { id: '2', date: '2024-01-15', time: '10:30', duration: 60, isAvailable: true, trainerId: '1' },
+        { id: '3', date: '2024-01-15', time: '14:00', duration: 60, isAvailable: false, trainerId: '1' },
+        { id: '4', date: '2024-01-16', time: '09:00', duration: 60, isAvailable: true, trainerId: '1' },
+        { id: '5', date: '2024-01-16', time: '11:00', duration: 60, isAvailable: true, trainerId: '1' },
+      ],
+    },
+    {
+      id: '2',
+      name: 'Mike Chen',
+      specialty: 'Cardio & HIIT',
+      avatar: '🏃',
+      rating: 4.8,
+      price: 65,
+      availableSlots: [
+        { id: '6', date: '2024-01-15', time: '08:00', duration: 45, isAvailable: true, trainerId: '2' },
+        { id: '7', date: '2024-01-15', time: '16:00', duration: 45, isAvailable: true, trainerId: '2' },
+        { id: '8', date: '2024-01-16', time: '07:30', duration: 45, isAvailable: true, trainerId: '2' },
+      ],
+    },
+    {
+      id: '3',
+      name: 'Emma Davis',
+      specialty: 'Yoga & Flexibility',
+      avatar: '🧘',
+      rating: 4.9,
+      price: 70,
+      availableSlots: [
+        { id: '9', date: '2024-01-15', time: '18:00', duration: 90, isAvailable: true, trainerId: '3' },
+        { id: '10', date: '2024-01-16', time: '19:00', duration: 90, isAvailable: true, trainerId: '3' },
+      ],
+    },
+  ];
 
-  // Session card animations
-  const sessionAnimations = useRef(sessions.map(() => new Animated.Value(0))).current;
+  const bookings: Booking[] = [
+    {
+      id: '1',
+      trainerId: '1',
+      trainerName: 'Sarah Johnson',
+      date: '2024-01-15',
+      time: '09:00',
+      duration: 60,
+      sessionType: 'Strength Training',
+      status: 'upcoming',
+      progress: 0,
+    },
+    {
+      id: '2',
+      trainerId: '2',
+      trainerName: 'Mike Chen',
+      date: '2024-01-10',
+      time: '08:00',
+      duration: 45,
+      sessionType: 'HIIT Cardio',
+      status: 'completed',
+      progress: 100,
+      exercises: [
+        { name: 'Bench Press', sets: 3, reps: 10, weight: 135 },
+        { name: 'Squats', sets: 4, reps: 12, weight: 185 },
+        { name: 'Deadlifts', sets: 3, reps: 8, weight: 225 },
+      ],
+    },
+    {
+      id: '3',
+      trainerId: '3',
+      trainerName: 'Emma Davis',
+      date: '2024-01-08',
+      time: '18:00',
+      duration: 90,
+      sessionType: 'Yoga Flow',
+      status: 'completed',
+      progress: 100,
+      exercises: [
+        { name: 'Sun Salutation', sets: 5, reps: 1, weight: 0 },
+        { name: 'Warrior Poses', sets: 3, reps: 1, weight: 0 },
+        { name: 'Tree Pose', sets: 2, reps: 1, weight: 0 },
+      ],
+    },
+  ];
 
-  useEffect(() => {
-    // Animate stats on mount
-    statsAnimations.forEach((anim, index) => {
-      Animated.timing(anim, {
-        toValue: bookingStats[index].value,
-        duration: 1500,
-        useNativeDriver: false,
-      }).start();
-    });
+  const sessionTypes = [
+    { id: 'strength', name: 'Strength Training', icon: 'fitness' },
+    { id: 'cardio', name: 'Cardio & HIIT', icon: 'heart' },
+    { id: 'yoga', name: 'Yoga & Flexibility', icon: 'leaf' },
+    { id: 'pilates', name: 'Pilates', icon: 'body' },
+    { id: 'crossfit', name: 'CrossFit', icon: 'flash' },
+  ];
 
-    // Animate session cards
-    sessionAnimations.forEach((anim, index) => {
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 800 + index * 200,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, []);
-
-  const handleSessionPress = (sessionId: string) => {
-    console.log('Opening session:', sessionId);
-  };
-
-  const handleFilterPress = (filter: string) => {
-    setSelectedFilter(filter);
-  };
-
-  const getSessionColor = (type: string) => {
-    switch (type) {
-      case 'yoga':
-        return '#FF6B6B';
-      case 'strength':
-        return '#4ECDC4';
-      case 'cardio':
-        return '#45B7D1';
-      default:
-        return theme.colors.primary;
-    }
-  };
-
-  const getSessionIcon = (type: string) => {
-    switch (type) {
-      case 'yoga':
-        return 'leaf';
-      case 'strength':
-        return 'dumbbell';
-      case 'cardio':
-        return 'heart';
-      default:
-        return 'fitness';
+  const handleBookSession = () => {
+    if (selectedSlot && selectedTrainer) {
+      Alert.alert(
+        'Confirm Booking',
+        `Book ${sessionType} session with ${selectedTrainer.name} on ${selectedSlot.date} at ${selectedSlot.time}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Book', onPress: () => {
+            setShowBookingModal(false);
+            setSelectedSlot(null);
+            setSelectedTrainer(null);
+            Alert.alert('Success', 'Session booked successfully!');
+          }},
+        ]
+      );
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed':
-        return theme.colors.success;
-      case 'pending':
-        return theme.colors.warning;
-      case 'completed':
-        return theme.colors.primary;
-      default:
-        return theme.colors.textSecondary;
+      case 'upcoming': return colors.primary;
+      case 'completed': return colors.success;
+      case 'cancelled': return colors.destructive;
+      default: return colors.mutedForeground;
     }
   };
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
+  const formatTime = (timeString: string) => {
+    return timeString;
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: theme.spacing.lg }}>
-        {/* Header */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.colors.text, marginBottom: 8 }}>
-            Bookings
-          </Text>
-          <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
-            Manage your training sessions
-          </Text>
-        </View>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <LinearGradient
+        colors={[colors.primary, colors.chart1]}
+        style={styles.headerGradient}
+      >
+        <Text style={[styles.headerTitle, { color: colors.primaryForeground }]}>
+          Book Sessions
+        </Text>
+        <Text style={[styles.headerSubtitle, { color: colors.primaryForeground }]}>
+          Schedule your training sessions
+        </Text>
+      </LinearGradient>
 
-        {/* Stats Cards */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: theme.spacing.lg }}>
-          {bookingStats.map((stat, index) => (
-            <LinearGradient
-              key={stat.label}
-              colors={[stat.color, stat.color + 'CC']}
-              style={{ flex: 1, backgroundColor: theme.colors.card, padding: theme.spacing.lg, borderRadius: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: stat.color, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}
-            >
-              <Animated.Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.background }}>
-                {statsAnimations[index]}
-              </Animated.Text>
-              <Text style={{ fontSize: 12, color: theme.colors.background + 'CC', marginTop: 4, textAlign: 'center' }}>
-                {stat.label}
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            selectedTab === 'upcoming' && { backgroundColor: colors.primary }
+          ]}
+          onPress={() => setSelectedTab('upcoming')}
+        >
+          <Text style={[
+            styles.tabText,
+            { color: selectedTab === 'upcoming' ? colors.primaryForeground : colors.foreground }
+          ]}>
+            Upcoming
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            selectedTab === 'history' && { backgroundColor: colors.primary }
+          ]}
+          onPress={() => setSelectedTab('history')}
+        >
+          <Text style={[
+            styles.tabText,
+            { color: selectedTab === 'history' ? colors.primaryForeground : colors.foreground }
+          ]}>
+            History
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.content}>
+        {selectedTab === 'upcoming' ? (
+          <>
+            {/* Available Trainers */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                Available Trainers
               </Text>
-            </LinearGradient>
-          ))}
-        </View>
-
-        {/* Session Types Filter */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.primary, marginBottom: theme.spacing.md }}>
-            Session Types
-          </Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {sessionTypes.map((type) => (
-              <TouchableOpacity
-                key={type.name}
-                onPress={() => handleFilterPress(type.name.toLowerCase())}
-                style={{
-                  flex: 1,
-                  backgroundColor: selectedFilter === type.name.toLowerCase() ? type.color : theme.colors.card,
-                  padding: theme.spacing.md,
-                  borderRadius: 12,
-                  marginHorizontal: 4,
-                  alignItems: 'center',
-                  shadowColor: type.color,
-                  shadowOpacity: selectedFilter === type.name.toLowerCase() ? 0.2 : 0.05,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={type.icon as any}
-                  size={24}
-                  color={selectedFilter === type.name.toLowerCase() ? theme.colors.background : type.color}
-                />
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: selectedFilter === type.name.toLowerCase() ? theme.colors.background : theme.colors.text,
-                  marginTop: 4,
-                }}>
-                  {type.name}
-                </Text>
-                <Text style={{
-                  fontSize: 10,
-                  color: selectedFilter === type.name.toLowerCase() ? theme.colors.background + 'CC' : theme.colors.textSecondary,
-                }}>
-                  {type.count} sessions
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Your Sessions */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.primary, marginBottom: theme.spacing.md }}>
-            Your Sessions
-          </Text>
-          {sessions.map((session, index) => (
-            <Animated.View
-              key={session.id}
-              style={{
-                transform: [{ translateY: sessionAnimations[index].interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0],
-                })}],
-                opacity: sessionAnimations[index],
-              }}
-            >
-              <LinearGradient
-                colors={[theme.colors.card, theme.colors.card + 'DD']}
-                style={{
-                  borderRadius: 16,
-                  padding: theme.spacing.lg,
-                  marginBottom: theme.spacing.md,
-                  shadowColor: getSessionColor(session.type),
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-              >
-                <TouchableOpacity onPress={() => handleSessionPress(session.id)}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: theme.spacing.sm }}>
-                    <View style={{ flexDirection: 'row', flex: 1 }}>
-                      <View style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 28,
-                        backgroundColor: getSessionColor(session.type) + '20',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginRight: 12,
-                      }}>
-                        <Text style={{ fontSize: 24 }}>{session.avatar}</Text>
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.text, marginBottom: 2 }}>
-                          {session.trainerName}
+              {trainers.map((trainer) => (
+                <TouchableOpacity
+                  key={trainer.id}
+                  style={[styles.trainerCard, { backgroundColor: colors.card }]}
+                  onPress={() => setSelectedTrainer(trainer)}
+                >
+                  <View style={styles.cardTrainerInfo}>
+                    <Text style={styles.trainerAvatar}>{trainer.avatar}</Text>
+                    <View style={styles.trainerDetails}>
+                      <Text style={[styles.trainerName, { color: colors.foreground }]}>
+                        {trainer.name}
+                      </Text>
+                      <Text style={[styles.trainerSpecialty, { color: colors.mutedForeground }]}>
+                        {trainer.specialty}
+                      </Text>
+                      <View style={styles.trainerStats}>
+                        <Ionicons name="star" size={12} color={colors.warning} />
+                        <Text style={[styles.trainerRating, { color: colors.mutedForeground }]}>
+                          {trainer.rating}
                         </Text>
-                        <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginBottom: 4 }}>
-                          {session.trainerSpecialty}
+                        <Text style={[styles.trainerPrice, { color: colors.primary }]}>
+                          ${trainer.price}/session
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 12, color: theme.colors.warning, marginRight: 4 }}>
-                            ⭐ {session.rating}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
-                            {session.duration}
-                          </Text>
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary, marginRight: 12 }}>
-                            📅 {session.date}
-                          </Text>
-                          <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
-                            ⏰ {session.time}
-                          </Text>
-                        </View>
                       </View>
                     </View>
-                    <View style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      borderRadius: 12,
-                      backgroundColor: getStatusColor(session.status),
-                    }}>
-                      <Text style={{ fontSize: 10, fontWeight: '500', color: theme.colors.background, textTransform: 'capitalize' }}>
-                        {session.status}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Upcoming Bookings */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                Upcoming Sessions
+              </Text>
+              {bookings.filter(b => b.status === 'upcoming').map((booking) => (
+                <View key={booking.id} style={[styles.bookingCard, { backgroundColor: colors.card }]}>
+                  <View style={styles.bookingHeader}>
+                    <Text style={[styles.bookingTrainer, { color: colors.foreground }]}>
+                      {booking.trainerName}
+                    </Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(booking.status) + '20' }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(booking.status) }]}>
+                        {booking.status}
                       </Text>
                     </View>
                   </View>
-
-                  {/* Progress Bar for completed sessions */}
-                  {session.status === 'completed' && (
-                    <View style={{ marginTop: theme.spacing.sm }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>Session Progress</Text>
-                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>{session.progress}%</Text>
-                      </View>
-                      <View style={{
-                        height: 6,
-                        backgroundColor: theme.colors.border,
-                        borderRadius: 3,
-                        overflow: 'hidden',
-                      }}>
-                        <Animated.View style={{
-                          height: '100%',
-                          width: `${session.progress}%`,
-                          backgroundColor: getSessionColor(session.type),
-                          borderRadius: 3,
-                        }} />
-                      </View>
+                  <Text style={[styles.bookingDetails, { color: colors.mutedForeground }]}>
+                    {formatDate(booking.date)} at {formatTime(booking.time)} • {booking.duration}min
+                  </Text>
+                  <Text style={[styles.bookingType, { color: colors.foreground }]}>
+                    {booking.sessionType}
+                  </Text>
+                  {booking.progress !== undefined && (
+                    <View style={styles.progressContainer}>
+                      <Text style={[styles.progressLabel, { color: colors.mutedForeground }]}>Session Progress</Text>
+                      <Text style={[styles.progressValue, { color: colors.primary }]}>{booking.progress}%</Text>
                     </View>
                   )}
-
-                  {/* Action buttons */}
-                  <View style={{ flexDirection: 'row', marginTop: theme.spacing.sm }}>
-                    {session.status === 'confirmed' && (
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor: getSessionColor(session.type),
-                          paddingVertical: 8,
-                          paddingHorizontal: 16,
-                          borderRadius: 8,
-                          marginRight: 8,
-                        }}
-                      >
-                        <Text style={{ color: theme.colors.background, fontWeight: '600', fontSize: 14 }}>
-                          Join Session
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {session.status === 'pending' && (
-                      <TouchableOpacity
-                        style={{
-                          backgroundColor: theme.colors.warning,
-                          paddingVertical: 8,
-                          paddingHorizontal: 16,
-                          borderRadius: 8,
-                          marginRight: 8,
-                        }}
-                      >
-                        <Text style={{ color: theme.colors.background, fontWeight: '600', fontSize: 14 }}>
-                          Confirm
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: 'transparent',
-                        paddingVertical: 8,
-                        paddingHorizontal: 16,
-                        borderRadius: 8,
-                        borderWidth: 1,
-                        borderColor: theme.colors.border,
-                      }}
-                    >
-                      <Text style={{ color: theme.colors.textSecondary, fontWeight: '600', fontSize: 14 }}>
-                        Reschedule
-                      </Text>
-                    </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : (
+          /* Booking History */
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Training History
+            </Text>
+            {bookings.filter(b => b.status === 'completed').map((booking) => (
+              <View key={booking.id} style={[styles.bookingCard, { backgroundColor: colors.card }]}>
+                <View style={styles.bookingHeader}>
+                  <Text style={[styles.bookingTrainer, { color: colors.foreground }]}>
+                    {booking.trainerName}
+                  </Text>
+                  <View style={[styles.statusBadge, { backgroundColor: colors.success + '20' }]}>
+                    <Text style={[styles.statusText, { color: colors.success }]}>
+                      Completed
+                    </Text>
                   </View>
-                </TouchableOpacity>
-              </LinearGradient>
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Quick Actions */}
-        <View>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.accent, marginBottom: theme.spacing.md }}>
-            Quick Actions
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            {sessionTypes.map((type) => (
-              <TouchableOpacity
-                key={type.name}
-                style={{
-                  width: '48%',
-                  backgroundColor: theme.colors.card,
-                  padding: theme.spacing.lg,
-                  borderRadius: 12,
-                  marginBottom: theme.spacing.md,
-                  alignItems: 'center',
-                  shadowColor: type.color,
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-              >
-                <MaterialCommunityIcons
-                  name={type.icon as any}
-                  size={32}
-                  color={type.color}
-                  style={{ marginBottom: 8 }}
-                />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.text, marginBottom: 4 }}>
-                  Book {type.name}
+                </View>
+                <Text style={[styles.bookingDetails, { color: colors.mutedForeground }]}>
+                  {formatDate(booking.date)} at {formatTime(booking.time)} • {booking.duration}min
                 </Text>
-                <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textAlign: 'center' }}>
-                  Schedule a new session
+                <Text style={[styles.bookingType, { color: colors.foreground }]}>
+                  {booking.sessionType}
                 </Text>
-              </TouchableOpacity>
+                
+                {/* Exercise Progress */}
+                {booking.exercises && (
+                  <View style={styles.exercisesContainer}>
+                    <Text style={[styles.exercisesTitle, { color: colors.foreground }]}>
+                      Exercises Completed
+                    </Text>
+                    {booking.exercises.map((exercise, index) => (
+                      <View key={index} style={styles.exerciseItem}>
+                        <Text style={[styles.exerciseName, { color: colors.foreground }]}>
+                          {exercise.name}
+                        </Text>
+                        <Text style={[styles.exerciseDetails, { color: colors.mutedForeground }]}>
+                          {exercise.sets} sets × {exercise.reps} reps
+                          {exercise.weight > 0 && ` @ ${exercise.weight}lbs`}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
             ))}
           </View>
-        </View>
+        )}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Booking Modal */}
+      <Modal
+        visible={showBookingModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+                Book Session
+              </Text>
+              <TouchableOpacity onPress={() => setShowBookingModal(false)}>
+                <Ionicons name="close" size={24} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedTrainer && (
+              <>
+                <View style={styles.modalTrainerInfo}>
+                  <Text style={styles.trainerAvatar}>{selectedTrainer.avatar}</Text>
+                  <View>
+                    <Text style={[styles.modalTrainerName, { color: colors.foreground }]}>
+                      {selectedTrainer.name}
+                    </Text>
+                    <Text style={[styles.modalTrainerSpecialty, { color: colors.mutedForeground }]}>
+                      {selectedTrainer.specialty}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Session Type Selection */}
+                <View style={styles.sessionTypeContainer}>
+                  <Text style={[styles.sessionTypeTitle, { color: colors.foreground }]}>
+                    Session Type
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {sessionTypes.map((type) => (
+                      <TouchableOpacity
+                        key={type.id}
+                        style={[
+                          styles.sessionTypeButton,
+                          sessionType === type.id && { backgroundColor: colors.primary }
+                        ]}
+                        onPress={() => setSessionType(type.id)}
+                      >
+                        <Ionicons
+                          name={type.icon as any}
+                          size={20}
+                          color={sessionType === type.id ? colors.primaryForeground : colors.foreground}
+                        />
+                        <Text style={[
+                          styles.sessionTypeText,
+                          { color: sessionType === type.id ? colors.primaryForeground : colors.foreground }
+                        ]}>
+                          {type.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                {/* Available Slots */}
+                <View style={styles.slotsContainer}>
+                  <Text style={[styles.slotsTitle, { color: colors.foreground }]}>
+                    Available Slots
+                  </Text>
+                  <View style={styles.slotsGrid}>
+                    {selectedTrainer.availableSlots
+                      .filter(slot => slot.isAvailable)
+                      .map((slot) => (
+                        <TouchableOpacity
+                          key={slot.id}
+                          style={[
+                            styles.slotButton,
+                            selectedSlot?.id === slot.id && { backgroundColor: colors.primary }
+                          ]}
+                          onPress={() => setSelectedSlot(slot)}
+                        >
+                          <Text style={[
+                            styles.slotText,
+                            { color: selectedSlot?.id === slot.id ? colors.primaryForeground : colors.foreground }
+                          ]}>
+                            {formatDate(slot.date)}
+                          </Text>
+                          <Text style={[
+                            styles.slotTime,
+                            { color: selectedSlot?.id === slot.id ? colors.primaryForeground : colors.mutedForeground }
+                          ]}>
+                            {slot.time}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.bookButton, { backgroundColor: colors.primary }]}
+                  onPress={handleBookSession}
+                  disabled={!selectedSlot}
+                >
+                  <Text style={[styles.bookButtonText, { color: colors.primaryForeground }]}>
+                    Book Session
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Quick Book Button */}
+      <TouchableOpacity
+        style={[styles.quickBookButton, { backgroundColor: colors.primary }]}
+        onPress={() => setShowBookingModal(true)}
+      >
+        <Ionicons name="add" size={24} color={colors.primaryForeground} />
+        <Text style={[styles.quickBookText, { color: colors.primaryForeground }]}>
+          Quick Book
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
-}; 
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  trainerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  trainerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardTrainerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trainerAvatar: {
+    fontSize: 32,
+    marginRight: 12,
+  },
+  trainerDetails: {
+    flex: 1,
+  },
+  trainerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  trainerSpecialty: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  trainerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trainerRating: {
+    fontSize: 12,
+    marginLeft: 4,
+    marginRight: 8,
+  },
+  trainerPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  bookingCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  bookingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bookingTrainer: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  bookingDetails: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  bookingType: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  progressLabel: {
+    fontSize: 12,
+  },
+  progressValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  exercisesContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  exercisesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  exerciseItem: {
+    marginBottom: 6,
+  },
+  exerciseName: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  exerciseDetails: {
+    fontSize: 11,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  modalTrainerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTrainerName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalTrainerSpecialty: {
+    fontSize: 14,
+  },
+  sessionTypeContainer: {
+    marginBottom: 20,
+  },
+  sessionTypeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  sessionTypeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  sessionTypeText: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  slotsContainer: {
+    marginBottom: 20,
+  },
+  slotsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  slotsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  slotButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+    alignItems: 'center',
+  },
+  slotText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  slotTime: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+  bookButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  bookButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  quickBookButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  quickBookText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+}); 

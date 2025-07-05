@@ -1,351 +1,521 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Animated, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button } from '../components/Button';
-import { useTheme } from '../ThemeProvider';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  FlatList,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTheme } from '../ThemeProvider';
 
-interface ChatScreenProps {
-  navigation: any;
+const { width } = Dimensions.get('window');
+
+interface Message {
+  id: string;
+  text: string;
+  sender: 'user' | 'trainer';
+  timestamp: Date;
+  trainerId?: string;
 }
 
-const conversations = [
-  {
-    id: '1',
-    trainerName: 'Sarah Johnson',
-    trainerSpecialty: 'Yoga & Pilates',
-    lastMessage: 'Great session today! Your flexibility has improved significantly.',
-    time: '2 hours ago',
-    unreadCount: 2,
-    online: true,
-    avatar: '🧘‍♀️',
-    rating: 4.9,
-    sessions: 12,
-  },
-  {
-    id: '2',
-    trainerName: 'Mike Chen',
-    trainerSpecialty: 'Strength Training',
-    lastMessage: 'Ready for tomorrow\'s workout? We\'ll focus on compound movements.',
-    time: 'Yesterday',
-    unreadCount: 0,
-    online: false,
-    avatar: '💪',
-    rating: 4.8,
-    sessions: 8,
-  },
-  {
-    id: '3',
-    trainerName: 'Emma Davis',
-    trainerSpecialty: 'Cardio & HIIT',
-    lastMessage: 'Your endurance is amazing! Let\'s push it even further next time.',
-    time: '3 days ago',
-    unreadCount: 1,
-    online: true,
-    avatar: '🏃‍♀️',
-    rating: 4.7,
-    sessions: 15,
-  },
-];
+interface Trainer {
+  id: string;
+  name: string;
+  specialty: string;
+  avatar: string;
+  rating: number;
+  isOnline: boolean;
+  lastSeen: string;
+}
 
-const quickActions = [
-  { icon: 'call', label: 'Voice Call', color: '#FF6B6B' },
-  { icon: 'videocam', label: 'Video Call', color: '#4ECDC4' },
-  { icon: 'camera', label: 'Send Photo', color: '#45B7D1' },
-  { icon: 'analytics', label: 'Progress Report', color: '#96CEB4' },
-];
+export const ChatScreen: React.FC = () => {
+  const { colors, spacing } = useTheme();
+  const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
 
-const messageTemplates = [
-  { icon: 'fitness', label: 'Workout Question', message: 'Hi! I have a question about today\'s workout...', color: '#FF6B6B' },
-  { icon: 'calendar', label: 'Schedule Change', message: 'I need to reschedule our session...', color: '#4ECDC4' },
-  { icon: 'trophy', label: 'Goal Update', message: 'I\'ve reached a new milestone...', color: '#45B7D1' },
-];
+  const trainers: Trainer[] = [
+    {
+      id: '1',
+      name: 'Sarah Johnson',
+      specialty: 'Strength Training',
+      avatar: '💪',
+      rating: 4.9,
+      isOnline: true,
+      lastSeen: '2 min ago',
+    },
+    {
+      id: '2',
+      name: 'Mike Chen',
+      specialty: 'Cardio & HIIT',
+      avatar: '🏃',
+      rating: 4.8,
+      isOnline: true,
+      lastSeen: '5 min ago',
+    },
+    {
+      id: '3',
+      name: 'Emma Davis',
+      specialty: 'Yoga & Flexibility',
+      avatar: '🧘',
+      rating: 4.9,
+      isOnline: false,
+      lastSeen: '1 hour ago',
+    },
+    {
+      id: '4',
+      name: 'Alex Rodriguez',
+      specialty: 'CrossFit',
+      avatar: '🔥',
+      rating: 4.7,
+      isOnline: true,
+      lastSeen: '1 min ago',
+    },
+  ];
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
-  const theme = useTheme();
-  const [activeChats, setActiveChats] = useState(3);
-  const [onlineNow, setOnlineNow] = useState(2);
-  const [unreadMessages, setUnreadMessages] = useState(5);
-
-  // Animated values for stats
-  const statsAnimations = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
-
-  // Chat bubble animations
-  const chatAnimations = useRef(conversations.map(() => new Animated.Value(0))).current;
+  const quickMessages = [
+    'Can you help me with my form?',
+    'What should I eat before training?',
+    'I need a new workout plan',
+    'How do I improve my strength?',
+    'Can we schedule a session?',
+  ];
 
   useEffect(() => {
-    // Animate stats on mount
-    statsAnimations.forEach((anim, index) => {
-      Animated.timing(anim, {
-        toValue: [activeChats, onlineNow, unreadMessages][index],
-        duration: 1500,
-        useNativeDriver: false,
-      }).start();
-    });
+    if (selectedTrainer) {
+      // Load chat history for selected trainer
+      const mockMessages: Message[] = [
+        {
+          id: '1',
+          text: `Hi! I'm ${selectedTrainer.name}, your ${selectedTrainer.specialty} trainer. How can I help you today?`,
+          sender: 'trainer',
+          timestamp: new Date(Date.now() - 1000 * 60 * 30),
+          trainerId: selectedTrainer.id,
+        },
+        {
+          id: '2',
+          text: 'Hi! I need help with my workout routine.',
+          sender: 'user',
+          timestamp: new Date(Date.now() - 1000 * 60 * 25),
+        },
+        {
+          id: '3',
+          text: 'Great! I can help you create a personalized routine. What are your current fitness goals?',
+          sender: 'trainer',
+          timestamp: new Date(Date.now() - 1000 * 60 * 20),
+          trainerId: selectedTrainer.id,
+        },
+      ];
+      setMessages(mockMessages);
+    }
+  }, [selectedTrainer]);
 
-    // Animate chat bubbles
-    chatAnimations.forEach((anim, index) => {
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 800 + index * 200,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, []);
-
-  const handleOpenChat = (chatId: string) => {
-    console.log('Opening chat:', chatId);
+  const sendMessage = () => {
+    if (inputText.trim() && selectedTrainer) {
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        text: inputText.trim(),
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, newMessage]);
+      setInputText('');
+      
+      // Simulate trainer response
+      setTimeout(() => {
+        const trainerResponse: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Thanks for your message! I\'ll get back to you soon with a detailed response.',
+          sender: 'trainer',
+          timestamp: new Date(),
+          trainerId: selectedTrainer.id,
+        };
+        setMessages(prev => [...prev, trainerResponse]);
+      }, 2000);
+    }
   };
 
-  const handleQuickAction = (action: string) => {
-    console.log('Quick action:', action);
+  const sendQuickMessage = (text: string) => {
+    setInputText(text);
+    // Auto-send after a short delay
+    setTimeout(() => {
+      sendMessage();
+    }, 500);
   };
 
-  const handleMessageTemplate = (template: any) => {
-    console.log('Using template:', template.label);
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const getTrainerColor = (specialty: string) => {
-    if (specialty.includes('Yoga')) return '#FF6B6B';
-    if (specialty.includes('Strength')) return '#4ECDC4';
-    if (specialty.includes('Cardio')) return '#45B7D1';
-    return theme.colors.primary;
-  };
+  const renderMessage = ({ item }: { item: Message }) => (
+    <View style={[
+      styles.messageContainer,
+      item.sender === 'user' ? styles.userMessage : styles.trainerMessage,
+    ]}>
+      <View style={[
+        styles.messageBubble,
+        {
+          backgroundColor: item.sender === 'user' ? colors.primary : colors.card,
+          borderColor: item.sender === 'user' ? colors.primary : colors.border,
+        },
+      ]}>
+        <Text style={[
+          styles.messageText,
+          {
+            color: item.sender === 'user' ? colors.primaryForeground : colors.foreground,
+          },
+        ]}>
+          {item.text}
+        </Text>
+        <Text style={[
+          styles.messageTime,
+          {
+            color: item.sender === 'user' ? colors.primaryForeground + '80' : colors.mutedForeground,
+          },
+        ]}>
+          {formatTime(item.timestamp)}
+        </Text>
+      </View>
+    </View>
+  );
+
+  if (!selectedTrainer) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <LinearGradient
+          colors={[colors.primary, colors.chart1]}
+          style={styles.headerGradient}
+        >
+          <Text style={[styles.headerTitle, { color: colors.primaryForeground }]}>
+            Chat with Trainers
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: colors.primaryForeground }]}>
+            Connect with your fitness experts
+          </Text>
+        </LinearGradient>
+
+        {/* Trainers List */}
+        <ScrollView style={styles.trainersContainer}>
+          {trainers.map((trainer) => (
+            <TouchableOpacity
+              key={trainer.id}
+              style={[styles.trainerCard, { backgroundColor: colors.card }]}
+              onPress={() => setSelectedTrainer(trainer)}
+            >
+              <View style={styles.trainerInfo}>
+                <View style={styles.avatarContainer}>
+                  <Text style={styles.avatarText}>{trainer.avatar}</Text>
+                  <View style={[
+                    styles.onlineIndicator,
+                    { backgroundColor: trainer.isOnline ? colors.success : colors.mutedForeground },
+                  ]} />
+                </View>
+                <View style={styles.trainerDetails}>
+                  <Text style={[styles.trainerName, { color: colors.foreground }]}>
+                    {trainer.name}
+                  </Text>
+                  <Text style={[styles.trainerSpecialty, { color: colors.mutedForeground }]}>
+                    {trainer.specialty}
+                  </Text>
+                  <View style={styles.trainerStats}>
+                    <Ionicons name="star" size={12} color={colors.warning} />
+                    <Text style={[styles.trainerRating, { color: colors.mutedForeground }]}>
+                      {trainer.rating}
+                    </Text>
+                    <Text style={[styles.trainerStatus, { color: colors.mutedForeground }]}>
+                      {trainer.isOnline ? 'Online' : `Last seen ${trainer.lastSeen}`}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: theme.spacing.lg }}>
-        {/* Header */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 28, fontWeight: 'bold', color: theme.colors.text, marginBottom: 8 }}>
-            Messages
-          </Text>
-          <Text style={{ fontSize: 16, color: theme.colors.textSecondary }}>
-            Connect with your trainers
-          </Text>
-        </View>
-
-        {/* Stats Cards */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: theme.spacing.lg }}>
-          <LinearGradient
-            colors={[theme.colors.primary, theme.colors.primary + 'CC']}
-            style={{ flex: 1, backgroundColor: theme.colors.card, padding: theme.spacing.lg, borderRadius: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: theme.colors.primary, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}
-          >
-            <Animated.Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.background }}>
-              {statsAnimations[0]}
-            </Animated.Text>
-            <Text style={{ fontSize: 12, color: theme.colors.background + 'CC', marginTop: 4 }}>Active Chats</Text>
-          </LinearGradient>
-          <LinearGradient
-            colors={[theme.colors.secondary, theme.colors.secondary + 'CC']}
-            style={{ flex: 1, backgroundColor: theme.colors.card, padding: theme.spacing.lg, borderRadius: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: theme.colors.secondary, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}
-          >
-            <Animated.Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.background }}>
-              {statsAnimations[1]}
-            </Animated.Text>
-            <Text style={{ fontSize: 12, color: theme.colors.background + 'CC', marginTop: 4 }}>Online Now</Text>
-          </LinearGradient>
-          <LinearGradient
-            colors={[theme.colors.accent, theme.colors.accent + 'CC']}
-            style={{ flex: 1, backgroundColor: theme.colors.card, padding: theme.spacing.lg, borderRadius: 16, marginHorizontal: 4, alignItems: 'center', shadowColor: theme.colors.accent, shadowOpacity: 0.15, shadowRadius: 8, elevation: 3 }}
-          >
-            <Animated.Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.background }}>
-              {statsAnimations[2]}
-            </Animated.Text>
-            <Text style={{ fontSize: 12, color: theme.colors.background + 'CC', marginTop: 4 }}>Unread</Text>
-          </LinearGradient>
-        </View>
-
-        {/* Recent Conversations */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.primary, marginBottom: theme.spacing.md }}>
-            Recent Conversations
-          </Text>
-          {conversations.map((conversation, index) => (
-            <Animated.View
-              key={conversation.id}
-              style={{
-                transform: [{ translateY: chatAnimations[index].interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [50, 0],
-                })}],
-                opacity: chatAnimations[index],
-              }}
-            >
-              <TouchableOpacity
-                style={{
-                  backgroundColor: theme.colors.card,
-                  borderRadius: 16,
-                  padding: theme.spacing.lg,
-                  marginBottom: theme.spacing.md,
-                  shadowColor: getTrainerColor(conversation.trainerSpecialty),
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                  elevation: 3,
-                }}
-                onPress={() => handleOpenChat(conversation.id)}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: theme.spacing.sm }}>
-                  <View style={{ flexDirection: 'row', flex: 1 }}>
-                    <View style={{ position: 'relative', marginRight: 12 }}>
-                      <View style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 28,
-                        backgroundColor: getTrainerColor(conversation.trainerSpecialty) + '20',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                        <Text style={{ fontSize: 24 }}>{conversation.avatar}</Text>
-                      </View>
-                      {conversation.online && (
-                        <View style={{
-                          position: 'absolute',
-                          bottom: 2,
-                          right: 2,
-                          width: 16,
-                          height: 16,
-                          borderRadius: 8,
-                          backgroundColor: theme.colors.success,
-                          borderWidth: 3,
-                          borderColor: theme.colors.card,
-                        }} />
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.text }}>
-                          {conversation.trainerName}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
-                          {conversation.time}
-                        </Text>
-                      </View>
-                      <Text style={{ fontSize: 14, color: theme.colors.textSecondary, marginBottom: 4 }}>
-                        {conversation.trainerSpecialty}
-                      </Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <Text style={{ fontSize: 12, color: theme.colors.warning, marginRight: 4 }}>
-                          ⭐ {conversation.rating}
-                        </Text>
-                        <Text style={{ fontSize: 12, color: theme.colors.textSecondary }}>
-                          ({conversation.sessions} sessions)
-                        </Text>
-                      </View>
-                      <Text style={{ fontSize: 14, color: theme.colors.text, lineHeight: 20 }}>
-                        {conversation.lastMessage}
-                      </Text>
-                    </View>
-                  </View>
-                  {conversation.unreadCount > 0 && (
-                    <View style={{
-                      backgroundColor: theme.colors.accent,
-                      borderRadius: 12,
-                      paddingHorizontal: 8,
-                      paddingVertical: 4,
-                      minWidth: 20,
-                      alignItems: 'center',
-                    }}>
-                      <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.background }}>
-                        {conversation.unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Quick Actions */}
-        <View style={{ marginBottom: theme.spacing.lg }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.accent, marginBottom: theme.spacing.md }}>
-            Quick Actions
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={action.label}
-                style={{
-                  width: '48%',
-                  backgroundColor: theme.colors.card,
-                  padding: theme.spacing.lg,
-                  borderRadius: 12,
-                  marginBottom: theme.spacing.md,
-                  alignItems: 'center',
-                  shadowColor: action.color,
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
-                onPress={() => handleQuickAction(action.label)}
-              >
-                <Ionicons
-                  name={action.icon as any}
-                  size={24}
-                  color={action.color}
-                  style={{ marginBottom: 8 }}
-                />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.text, marginBottom: 4 }}>
-                  {action.label}
-                </Text>
-                <Text style={{ fontSize: 12, color: theme.colors.textSecondary, textAlign: 'center' }}>
-                  Connect instantly
-                </Text>
-              </TouchableOpacity>
-            ))}
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      {/* Chat Header */}
+      <LinearGradient
+        colors={[colors.primary, colors.chart1]}
+        style={styles.chatHeader}
+      >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setSelectedTrainer(null)}
+        >
+          <Ionicons name="arrow-back" size={24} color={colors.primaryForeground} />
+        </TouchableOpacity>
+        <View style={styles.chatTrainerInfo}>
+          <Text style={styles.avatarText}>{selectedTrainer.avatar}</Text>
+          <View style={styles.chatTrainerDetails}>
+            <Text style={[styles.chatTrainerName, { color: colors.primaryForeground }]}>
+              {selectedTrainer.name}
+            </Text>
+            <Text style={[styles.chatTrainerStatus, { color: colors.primaryForeground }]}>
+              {selectedTrainer.isOnline ? 'Online' : 'Offline'}
+            </Text>
           </View>
         </View>
+        <TouchableOpacity style={styles.moreButton}>
+          <Ionicons name="ellipsis-vertical" size={24} color={colors.primaryForeground} />
+        </TouchableOpacity>
+      </LinearGradient>
 
-        {/* Message Templates */}
-        <View>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: theme.colors.secondary, marginBottom: theme.spacing.md }}>
-            Message Templates
-          </Text>
-          <View style={{ backgroundColor: theme.colors.card, borderRadius: 16, padding: theme.spacing.lg, shadowColor: theme.colors.primary, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 }}>
-            {messageTemplates.map((template, index) => (
-              <TouchableOpacity
-                key={template.label}
-                style={{
-                  paddingVertical: 12,
-                  borderBottomWidth: index < messageTemplates.length - 1 ? 1 : 0,
-                  borderBottomColor: theme.colors.border,
-                }}
-                onPress={() => handleMessageTemplate(template)}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <View style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: template.color + '20',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginRight: 12,
-                  }}>
-                    <MaterialCommunityIcons
-                      name={template.icon as any}
-                      size={16}
-                      color={template.color}
-                    />
-                  </View>
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: theme.colors.text }}>
-                    {template.label}
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 14, color: theme.colors.textSecondary, lineHeight: 20, fontStyle: 'italic', marginLeft: 44 }}>
-                  "{template.message}"
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+      {/* Messages */}
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+      />
+
+      {/* Quick Messages */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.quickMessagesContainer}
+        contentContainerStyle={styles.quickMessagesContent}
+      >
+        {quickMessages.map((message, index) => (
+          <TouchableOpacity
+            key={index}
+            style={[styles.quickMessageButton, { backgroundColor: colors.card }]}
+            onPress={() => sendQuickMessage(message)}
+          >
+            <Text style={[styles.quickMessageText, { color: colors.foreground }]}>
+              {message}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Input */}
+      <View style={[styles.inputContainer, { backgroundColor: colors.card }]}>
+        <TextInput
+          style={[styles.textInput, { color: colors.foreground }]}
+          placeholder="Type a message..."
+          placeholderTextColor={colors.mutedForeground}
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, { backgroundColor: colors.primary }]}
+          onPress={sendMessage}
+          disabled={!inputText.trim()}
+        >
+          <Ionicons
+            name="send"
+            size={20}
+            color={inputText.trim() ? colors.primaryForeground : colors.mutedForeground}
+          />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
-}; 
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  headerGradient: {
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    opacity: 0.8,
+  },
+  trainersContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  trainerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  trainerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  avatarText: {
+    fontSize: 32,
+  },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  trainerDetails: {
+    flex: 1,
+  },
+  trainerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  trainerSpecialty: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  trainerStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trainerRating: {
+    fontSize: 12,
+    marginLeft: 4,
+    marginRight: 8,
+  },
+  trainerStatus: {
+    fontSize: 12,
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    marginRight: 16,
+  },
+  chatTrainerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chatTrainerDetails: {
+    marginLeft: 12,
+  },
+  chatTrainerName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  chatTrainerStatus: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
+  moreButton: {
+    marginLeft: 16,
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  messageContainer: {
+    marginBottom: 12,
+  },
+  userMessage: {
+    alignItems: 'flex-end',
+  },
+  trainerMessage: {
+    alignItems: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: width * 0.75,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  messageTime: {
+    fontSize: 10,
+    alignSelf: 'flex-end',
+  },
+  quickMessagesContainer: {
+    maxHeight: 60,
+    paddingHorizontal: 20,
+  },
+  quickMessagesContent: {
+    paddingVertical: 8,
+  },
+  quickMessageButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  quickMessageText: {
+    fontSize: 12,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  textInput: {
+    flex: 1,
+    maxHeight: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginRight: 12,
+    fontSize: 14,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+}); 

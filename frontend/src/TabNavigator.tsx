@@ -8,6 +8,7 @@ import { WorkoutsScreen } from './screens/WorkoutsScreen';
 import { BookingsScreen } from './screens/BookingsScreen';
 import { ChatScreen } from './screens/ChatScreen';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ProgressScreen } from './screens/ProgressScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -39,7 +40,7 @@ export const TabNavigator = () => {
         ],
         tabBarBackground: () => (
           <LinearGradient
-            colors={[...theme.colors.glassGradient] as string[]}
+            colors={theme.colors.glassGradient as [string, string]}
             style={StyleSheet.absoluteFill}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -49,6 +50,8 @@ export const TabNavigator = () => {
           let icon;
           if (route.name === 'Home') {
             icon = <Ionicons name="person-circle" size={28} color={focused ? theme.colors.primary : theme.colors.tabInactive} />;
+          } else if (route.name === 'Progress') {
+            icon = <Ionicons name="trending-up" size={26} color={focused ? theme.colors.primary : theme.colors.tabInactive} />;
           } else if (route.name === 'Workouts') {
             icon = <MaterialCommunityIcons name="dumbbell" size={26} color={focused ? theme.colors.primary : theme.colors.tabInactive} />;
           } else if (route.name === 'Activity') {
@@ -74,6 +77,7 @@ export const TabNavigator = () => {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Progress" component={ProgressScreen} />
       <Tab.Screen name="Workouts" component={WorkoutsScreen} />
       <Tab.Screen name="Activity" component={ActivityScreen} />
       <Tab.Screen name="Chat" component={ChatScreen} />
